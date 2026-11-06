@@ -1,0 +1,43 @@
+# ==============================================================================
+# CITY ROAD NETWORK DATA: BHIMTAL METROPOLITAN REGION
+# Emergency Ambulance Dispatch & Fleet Optimization System
+# Format:
+#   NODES <total_count>
+#   NODE <id> <is_hospital: 0|1> <is_ambulance_base: 0|1> <Landmark Name>
+#   ROAD <node_u> <node_v> <distance_in_km> <bidirectional: 0|1>
+# ==============================================================================
+
+NODES 10
+
+# ID  HOSP BASE  NAME
+NODE 0  0    1     Bhimtal Ambulance Base
+NODE 1  0    0     Tallital Junction
+NODE 2  0    0     Mallital Central Market
+NODE 3  0    0     GEHU Bhimtal Campus Gate
+NODE 4  0    0     Bhowali Crossroad
+NODE 5  1    0     District Civil Hospital
+NODE 6  0    0     Kainchi Sector Post
+NODE 7  0    1     Kathgodam Emergency Base
+NODE 8  1    1     City Multi-Specialty Trauma Center
+NODE 9  0    0     Jeolikote Transit Outpost
+
+# ------------------------------------------------------------------------------
+# ROAD CONNECTIONS (Weights represent real-world driving distance in km)
+# ------------------------------------------------------------------------------
+# U  V  KM  BIDIRECTIONAL
+ROAD 0  1   4   1
+ROAD 0  3   2   1
+ROAD 1  2   3   1
+ROAD 1  4   5   1
+ROAD 2  4   4   1
+ROAD 2  5   6   1
+ROAD 3  4   3   1
+ROAD 3  6   7   1
+ROAD 4  5   3   1
+ROAD 4  6   4   1
+ROAD 5  8   5   1
+ROAD 6  8   6   1
+ROAD 7  9   4   1
+ROAD 9  1   6   1
+ROAD 9  8   8   1
+ROAD 7  8   3   1

@@ -23,7 +23,7 @@
  * ============================================================================
  */
 
-/* Clear screen helper for cross-platform aesthetic */
+/* Clear screen helper */
 static void clear_screen(void) {
 #ifdef _WIN32
     system("cls");
@@ -34,9 +34,89 @@ static void clear_screen(void) {
 
 /* Pause helper */
 static void pause_prompt(void) {
-    printf("\nPress [Enter] to return to the Main Control Center...");
+    printf("\nPress [Enter] to return to the Control Dashboard...");
     while (getchar() != '\n');
     getchar();
+}
+
+/*
+ * ============================================================================
+ * VISUAL 2D CITY ROAD NETWORK SCHEMATIC
+ * Renders a visual structural layout of the Bhimtal emergency network
+ * ============================================================================
+ */
+static void print_visual_map(void) {
+    printf("===============================================================================\n");
+    printf("               BHIMTAL REGIONAL EMERGENCY ROAD NETWORK SCHEMATIC               \n");
+    printf("===============================================================================\n\n");
+    printf("   [00] Bhimtal Base [B] --------- 4 km --------- [01] Tallital Junction\n");
+    printf("          |                                              |         |\n");
+    printf("         2 km                                           5 km      6 km\n");
+    printf("          |                                              |         |\n");
+    printf("   [03] GEHU Campus Gate --------- 3 km --------- [04] Bhowali     |\n");
+    printf("          |                                         Crossroad      |\n");
+    printf("         7 km                                            |         |\n");
+    printf("          |                                             3 km       |\n");
+    printf("   [06] Kainchi Sector Post                              |         |\n");
+    printf("          |      \\                                [05] District    |\n");
+    printf("          |       \\------ 4 km ---------\\          Civil Hosp [H]  |\n");
+    printf("         6 km                            \\               |         |\n");
+    printf("          |                               \\             5 km       |\n");
+    printf("          |                                \\             |         |\n");
+    printf("   [08] City Multi-Specialty Trauma Center [H+B] --------+-- 8 km -+-- [09] Jeolikote\n");
+    printf("          |                                                        |\n");
+    printf("         3 km                                                     4 km\n");
+    printf("          |                                                        |\n");
+    printf("   [07] Kathgodam Base [B] ----------------------------------------+\n\n");
+    printf("   -------------------------------------------------------------------------\n");
+    printf("   LEGEND:  [B] = Ambulance Station   |   [H] = Hospital with Bed/ICU Ward   \n");
+    printf("   -------------------------------------------------------------------------\n");
+}
+
+/*
+ * Helper to count total available beds across all hospitals
+ */
+static int get_total_free_beds(const HospitalList* list) {
+    if (!list) return 0;
+    int sum = 0;
+    HospitalNode* curr = list->head;
+    while (curr) {
+        sum += curr->available_beds;
+        curr = curr->next;
+    }
+    return sum;
+}
+
+/*
+ * Helper to count total bed capacity across all hospitals
+ */
+static int get_total_bed_capacity(const HospitalList* list) {
+    if (!list) return 0;
+    int sum = 0;
+    HospitalNode* curr = list->head;
+    while (curr) {
+        sum += curr->total_beds;
+        curr = curr->next;
+    }
+    return sum;
+}
+
+/*
+ * Prints a top-level telemetry summary bar
+ */
+static void print_telemetry_bar(const Fleet* fleet, const HospitalList* hospitals,
+                               const CallQueue* queue, const CallHistoryStack* history) {
+    int free_amb = count_available_ambulances(fleet);
+    int total_amb = fleet ? fleet->count : 0;
+    int pending_calls = queue ? queue->count : 0;
+    int free_beds = get_total_free_beds(hospitals);
+    int total_beds = get_total_bed_capacity(hospitals);
+    int resolved_calls = history ? history->count : 0;
+
+    printf("+-----------------------------------------------------------------------------+\n");
+    printf("| [TELEMETRY] Ambulances: %d/%d Ready | Calls: %d Pending | Beds: %d/%d Free | Audited: %d |\n",
+           free_amb, total_amb, pending_calls, free_beds, total_beds, resolved_calls);
+    printf("+-----------------------------------------------------------------------------+\n");
 }
 
 /*
@@ -59,7 +139,7 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
     EmergencyCall* call = dequeue_call(queue);
     printf("[*] Triaging Call #%d at Scene: Node [%02d] (%s)\n",
            call->call_id, call->caller_node, city->landmarks[call->caller_node].name);
-    printf("    Condition: %s | Severity Level: %d\n",
+    printf("    Incident Details: \"%s\" | Severity Level: %d\n",
            call->description, call->severity);
 
     /* Step 2: Filter available ambulances from Mansi's Singly Linked List */
@@ -68,7 +148,6 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
         printf("\n[DISPATCH WARNING] All ambulances are currently BUSY or deployed!\n");
         printf("Re-enqueuing Call #%d at front of queue for immediate servicing once a vehicle frees up.\n", call->call_id);
         
-        /* Re-insert call at the front of the queue by re-enqueuing */
         enqueue_call(queue, call->call_id, call->caller_node, call->severity, call->description);
         free(call);
         return;
@@ -86,7 +165,7 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
             if (route.is_reachable) {
                 /* Step 4: Insert (ambulance_id, distance) into Kartik's Min-Heap */
                 heap_insert(heap, curr_amb->id, route.total_distance, curr_amb->current_node);
-                printf("    ├── Candidate Amb #%-5d at Node [%02d] -> Distance: %d km\n",
+                printf("    |-- Candidate Amb #%-5d at Node [%02d] -> Distance: %d km\n",
                        curr_amb->id, curr_amb->current_node, route.total_distance);
             }
         }
@@ -119,7 +198,6 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
 
     HospitalNode* h_curr = hospitals->head;
     while (h_curr != NULL) {
-        /* Check bed qualifications */
         if (need_trauma && !h_curr->has_trauma_center) {
             h_curr = h_curr->next;
             continue;
@@ -133,7 +211,6 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
             continue;
         }
 
-        /* Calculate road distance from accident scene to this hospital */
         RouteResult r = find_shortest_path(city, call->caller_node, h_curr->node_id);
         if (r.is_reachable && r.total_distance < min_hosp_dist) {
             min_hosp_dist = r.total_distance;
@@ -172,7 +249,7 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
     transition_ambulance_status(closest.ambulance_id, STATUS_AT_SCENE);
     transition_ambulance_status(closest.ambulance_id, STATUS_RETURNING);
 
-    /* Admit patient to hospital (decrements regular and ICU beds) */
+    /* Admit patient to hospital */
     admit_patient_to_hospital(hospitals, best_hosp->id, need_icu);
 
     /* Ambulance completes mission at the hospital base */
@@ -189,8 +266,67 @@ static void dispatch_next_emergency(CityGraph* city, Fleet* fleet, HospitalList*
     push_history(history, call);
     free(call);
 
-    printf("\n[SUCCESS] Emergency incident resolved and permanently recorded in Supervisor Audit Stack.\n");
+    printf("\n[SUCCESS] Emergency incident resolved and logged in Supervisor Audit Stack.\n");
     printf("===============================================================================\n");
+}
+
+/*
+ * ============================================================================
+ * DIRECT ROUTE EXPLORER: Demonstrates Dijkstra on-demand for any two nodes
+ * ============================================================================
+ */
+static void explore_route(const CityGraph* city) {
+    printf("===============================================================================\n");
+    printf("                   DIRECT ROUTE EXPLORER (DIJKSTRA ENGINE)                     \n");
+    printf("===============================================================================\n");
+    printf(" Available City Intersections:\n");
+    for (int i = 0; i < city->num_nodes; i++) {
+        printf("   [%02d] %-28s %s\n",
+               i, city->landmarks[i].name,
+               city->landmarks[i].is_hospital ? "[HOSPITAL]" : (city->landmarks[i].is_base ? "[BASE]" : ""));
+    }
+
+    int src, dest;
+    printf("\nEnter Starting Intersection Node [0-%d]: ", city->num_nodes - 1);
+    if (scanf("%d", &src) != 1 || src < 0 || src >= city->num_nodes) {
+        printf("[ERROR] Invalid start node.\n");
+        return;
+    }
+
+    printf("Enter Destination Intersection Node [0-%d]: ", city->num_nodes - 1);
+    if (scanf("%d", &dest) != 1 || dest < 0 || dest >= city->num_nodes) {
+        printf("[ERROR] Invalid destination node.\n");
+        return;
+    }
+
+    printf("\n[*] Running Dijkstra Shortest Path Algorithm from Node [%02d] to Node [%02d]...\n", src, dest);
+    RouteResult res = find_shortest_path(city, src, dest);
+    print_route(city, &res);
+}
+
+/*
+ * ============================================================================
+ * PATIENT DISCHARGE / HOSPITAL BED DEALLOCATION
+ * ============================================================================
+ */
+static void discharge_patient_interface(HospitalList* hospitals) {
+    printf("===============================================================================\n");
+    printf("                      PATIENT DISCHARGE & BED RELEASE                          \n");
+    printf("===============================================================================\n");
+    print_hospitals(hospitals);
+
+    int hosp_id, is_icu;
+    printf("Enter Hospital ID for patient discharge: ");
+    if (scanf("%d", &hosp_id) != 1) return;
+
+    printf("Was this patient occupying an ICU bed? (1 = YES, 0 = NO): ");
+    if (scanf("%d", &is_icu) != 1) is_icu = 0;
+
+    if (discharge_patient_from_hospital(hospitals, hosp_id, is_icu != 0)) {
+        printf("\n[SUCCESS] Patient successfully discharged. Hospital bed restored.\n");
+    } else {
+        printf("\n[NOTICE] Hospital ID %d already at maximum bed capacity or not found.\n", hosp_id);
+    }
 }
 
 /*
@@ -288,7 +424,7 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    printf("\n[+] All Core Data Structures Successfully Initialized & Memory Mapped.\n");
+    printf("\n[+] All 4 Core Data Structures Initialized (Graph, Fleet, Min-Heap, Queue/Stack).\n");
     pause_prompt();
 
     int next_call_id = 101;
@@ -299,18 +435,22 @@ int main(void) {
         printf("===============================================================================\n");
         printf("                EMERGENCY DISPATCH OPERATIONS DASHBOARD                        \n");
         printf("===============================================================================\n");
-        printf(" 1. View City Road Network Topology (Adjacency List - Jatin)\n");
-        printf(" 2. View Active Ambulance Fleet Registry (Singly Linked List - Mansi)\n");
-        printf(" 3. View Hospital Bed & ICU Capacities (Capacity Tracker - Mansi)\n");
-        printf(" 4. Intake New Emergency Call (FIFO Enqueue - Mahima)\n");
-        printf(" 5. View Pending Emergency Calls Queue (FIFO Inspection - Mahima)\n");
-        printf(" 6. Run Smart Dispatch for Next Call (Dijkstra + Min-Heap - Jatin & Kartik)\n");
-        printf(" 7. View Incident Audit History (LIFO Stack - Mahima)\n");
-        printf(" 8. Persist System State to Disk (fleet.txt & hospitals.txt - Mansi)\n");
-        printf(" 9. Run Automated Professor Demo Simulation (End-to-End Walkthrough)\n");
-        printf(" 0. Save State & Exit System\n");
+        print_telemetry_bar(fleet, hospitals, queue, history);
+        printf("\n");
+        printf("  [1] View Visual 2D City Road Network & Graph (Jatin - Adjacency List)\n");
+        printf("  [2] View Active Ambulance Fleet Registry     (Mansi - Singly Linked List)\n");
+        printf("  [3] View Hospital Capacities & ICU Monitor    (Mansi - Bed Tracker)\n");
+        printf("  [4] Intake New 112/999 Emergency Call         (Mahima - FIFO Queue)\n");
+        printf("  [5] Inspect Pending Emergency Calls Queue    (Mahima - FIFO Queue)\n");
+        printf("  [6] Auto-Dispatch Nearest Ambulance          (Jatin & Kartik - Dijkstra + Heap)\n");
+        printf("  [7] Direct Route Explorer (Any 2 Nodes)      (Jatin - Dijkstra Engine)\n");
+        printf("  [8] Discharge Patient / Free Hospital Bed    (Mansi - Capacity Release)\n");
+        printf("  [9] View Incident Audit History              (Mahima - LIFO Stack)\n");
+        printf(" [10] Persist System State to Disk (.txt)      (Mansi - File I/O)\n");
+        printf(" [11] Run Automated Professor Demo Simulation  (End-to-End Walkthrough)\n");
+        printf("  [0] Save State & Exit System\n");
         printf("===============================================================================\n");
-        printf(" Enter your command selection [0-9]: ");
+        printf(" Select an option [0-11]: ");
 
         if (scanf("%d", &choice) != 1) {
             while (getchar() != '\n');
@@ -320,6 +460,8 @@ int main(void) {
         switch (choice) {
             case 1:
                 clear_screen();
+                print_visual_map();
+                printf("\n");
                 print_graph(city);
                 pause_prompt();
                 break;
@@ -346,7 +488,7 @@ int main(void) {
 
                 printf("Available City Intersections:\n");
                 for (int i = 0; i < city->num_nodes; i++) {
-                    printf("  Node [%02d]: %s\n", i, city->landmarks[i].name);
+                    printf("  [%02d] %s\n", i, city->landmarks[i].name);
                 }
 
                 printf("\nEnter Intersection Node of Emergency [0 to %d]: ", city->num_nodes - 1);
@@ -356,19 +498,19 @@ int main(void) {
                     break;
                 }
 
-                printf("Select Severity Level (1=LOW, 2=MEDIUM, 3=HIGH, 4=CRITICAL): ");
+                printf("Select Severity (1=LOW, 2=MEDIUM, 3=HIGH, 4=CRITICAL): ");
                 if (scanf("%d", &sev_input) != 1 || sev_input < 1 || sev_input > 4) {
-                    sev_input = 2; // Default to medium
+                    sev_input = 2;
                 }
 
-                while (getchar() != '\n'); // Clear input buffer
+                while (getchar() != '\n');
                 printf("Enter Brief Incident Description: ");
                 if (fgets(desc, sizeof(desc), stdin)) {
                     desc[strcspn(desc, "\r\n")] = '\0';
                 }
 
                 enqueue_call(queue, next_call_id++, node_id, (PriorityLevel)sev_input, desc);
-                printf("\n[+] Emergency Call #%d registered and queued into FIFO buffer.\n", next_call_id - 1);
+                printf("\n[+] Emergency Call #%d registered into FIFO queue successfully.\n", next_call_id - 1);
                 pause_prompt();
                 break;
             }
@@ -387,34 +529,46 @@ int main(void) {
 
             case 7:
                 clear_screen();
-                print_recent_history(history, 10);
+                explore_route(city);
                 pause_prompt();
                 break;
 
             case 8:
                 clear_screen();
-                printf("[*] Saving system state to disk...\n");
-                save_fleet_to_file(fleet, "fleet.txt");
-                save_hospitals_to_file(hospitals, "hospitals.txt");
-                printf("[+] System state successfully synchronized to persistent files.\n");
+                discharge_patient_interface(hospitals);
                 pause_prompt();
                 break;
 
             case 9:
+                clear_screen();
+                print_recent_history(history, 10);
+                pause_prompt();
+                break;
+
+            case 10:
+                clear_screen();
+                printf("[*] Saving system state to persistent disk files...\n");
+                save_fleet_to_file(fleet, "fleet.txt");
+                save_hospitals_to_file(hospitals, "hospitals.txt");
+                printf("[+] System state successfully synchronized to 'fleet.txt' and 'hospitals.txt'.\n");
+                pause_prompt();
+                break;
+
+            case 11:
                 clear_screen();
                 run_automated_demo(city, fleet, hospitals, queue, history);
                 pause_prompt();
                 break;
 
             case 0:
-                printf("\n[*] Auto-saving fleet and hospital state before shutdown...\n");
+                printf("\n[*] Synchronizing fleet and hospital state to disk before exit...\n");
                 save_fleet_to_file(fleet, "fleet.txt");
                 save_hospitals_to_file(hospitals, "hospitals.txt");
-                printf("[+] Shutdown complete. Goodbye!\n");
+                printf("[+] Shutdown clean. All records saved.\n");
                 break;
 
             default:
-                printf("\n[ERROR] Invalid option selected. Please choose between 0 and 9.\n");
+                printf("\n[ERROR] Invalid option selected. Please choose between 0 and 11.\n");
                 pause_prompt();
                 break;
         }

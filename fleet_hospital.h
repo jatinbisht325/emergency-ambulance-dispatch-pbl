@@ -1,163 +1,111 @@
-/*
- * fleet_hospital.h
- * Module owner : Mansi
- * Purpose      : Dynamic fleet (singly linked list), hospital bed tracker,
- *                and flat-file persistence (fleet.txt, hospitals.txt).
- *
- * NOTE: Match type names with common.h. If common.h already defines
- *       AmbulanceStatus, remove the enum below and use that one.
- */
-
 #ifndef FLEET_HOSPITAL_H
 #define FLEET_HOSPITAL_H
 
-#include <stdio.h>
+#include "common.h"
 
-/* ------------------------------------------------------------------ */
-/* Constants                                                           */
-/* ------------------------------------------------------------------ */
-#define MAX_NAME_LEN     50
-#define FLEET_FILE       "fleet.txt"
-#define HOSPITAL_FILE    "hospitals.txt"
+/*
+ * ============================================================================
+ * MODULE: AMBULANCE FLEET & HOSPITAL CAPACITY MANAGEMENT
+ * Author: Mansi (Refactored by Jatin for C99 Compliance & System Integration)
+ *
+ * Data Structures Used:
+ * 1. Singly Linked List for Ambulance Fleet (Dynamic vehicle additions, O(1) head insert)
+ * 2. Singly Linked List for Hospital Directory & Real-time Bed/ICU Tracker
+ * 3. Flat-File Persistence Engine for Disk I/O (fleet.txt & hospitals.txt)
+ * ============================================================================
+ */
 
-/* Return codes (used by functions that can fail) */
-#define FH_OK              0
-#define FH_ERR_NULL       -1   /* NULL pointer passed in            */
-#define FH_ERR_MEMORY     -2   /* malloc failed                     */
-#define FH_ERR_DUPLICATE  -3   /* ID already exists                 */
-#define FH_ERR_NOT_FOUND  -4   /* ID not found                      */
-#define FH_ERR_INVALID    -5   /* invalid value (status, beds, ...) */
-#define FH_ERR_FILE       -6   /* file could not be opened/written  */
-#define FH_ERR_NO_BEDS    -7   /* hospital has no free beds         */
+/* ----------------------------------------------------------------------------
+ * 1. AMBULANCE FLEET DATA STRUCTURES
+ * ---------------------------------------------------------------------------- */
 
-/* ------------------------------------------------------------------ */
-/* Ambulance status (4-phase cycle owned by Kartik's state machine)    */
-/* ------------------------------------------------------------------ */
-typedef enum {
-    STATUS_AVAILABLE = 0,
-    STATUS_EN_ROUTE  = 1,
-    STATUS_AT_SCENE  = 2,
-    STATUS_RETURNING = 3
-} FleetStatus;
-
-/* ------------------------------------------------------------------ */
-/* Fleet: singly linked list of ambulances                             */
-/* ------------------------------------------------------------------ */
+/* Singly linked list node representing one active ambulance vehicle */
 typedef struct AmbulanceNode {
-    int                   id;          /* unique ambulance ID           */
-    int                   location;    /* graph node where it is parked */
-    FleetStatus           status;      /* current phase                 */
-    int                   type;        /* 0 = basic, 1 = ICU/advanced   */
-    struct AmbulanceNode *next;        /* link to next ambulance        */
+    int id;                         /* Unique Ambulance ID (e.g. 101, 102) */
+    char plate[MAX_STR_LEN];        /* License plate string (e.g. "UK-04-A-1234") */
+    char type[MAX_STR_LEN];         /* Vehicle tier: "Basic Life Support" or "Advanced ICU" */
+    int current_node;               /* Current intersection where vehicle is parked */
+    AmbulanceStatus status;         /* AVAILABLE, EN_ROUTE, AT_SCENE, RETURNING */
+    int total_trips;                /* Counter for missions completed */
+    struct AmbulanceNode* next;     /* Pointer to next vehicle node in the linked list */
 } AmbulanceNode;
 
+/* Master head wrapper for the fleet linked list */
 typedef struct {
-    AmbulanceNode *head;               /* first ambulance (NULL if none)*/
-    int            count;              /* number of ambulances          */
+    AmbulanceNode* head;            /* Head pointer to first ambulance node */
+    int count;                      /* Total number of ambulances in fleet */
 } Fleet;
 
-/* ------------------------------------------------------------------ */
-/* Hospitals: singly linked list of hospital records                   */
-/* ------------------------------------------------------------------ */
+/* ----------------------------------------------------------------------------
+ * 2. HOSPITAL MANAGEMENT DATA STRUCTURES
+ * ---------------------------------------------------------------------------- */
+
+/* Singly linked list node representing a city hospital */
 typedef struct HospitalNode {
-    int                  id;
-    char                 name[MAX_NAME_LEN];
-    int                  location;       /* graph node of the hospital   */
-    int                  total_beds;
-    int                  available_beds;
-    int                  icu_ready;      /* 1 = has ICU, 0 = no          */
-    int                  trauma_center;  /* 1 = trauma center, 0 = no    */
-    struct HospitalNode *next;
+    int id;                         /* Unique Hospital ID */
+    int node_id;                    /* Intersection ID on city map where hospital is located */
+    char name[MAX_STR_LEN];         /* Hospital Name (e.g. "District Civil Hospital") */
+    int total_beds;                 /* Total regular bed capacity */
+    int available_beds;             /* Currently available regular beds */
+    int icu_beds_total;             /* Total ICU bed capacity */
+    int icu_beds_available;         /* Currently available ICU beds */
+    bool has_trauma_center;         /* True if hospital has advanced emergency trauma unit */
+    struct HospitalNode* next;      /* Pointer to next hospital node */
 } HospitalNode;
 
+/* Master head wrapper for the hospitals linked list */
 typedef struct {
-    HospitalNode *head;
-    int           count;
+    HospitalNode* head;             /* Head pointer to first hospital node */
+    int count;                      /* Total registered hospitals */
 } HospitalList;
 
-/* ================================================================== */
-/* FLEET FUNCTIONS                                                     */
-/* ================================================================== */
+/* ----------------------------------------------------------------------------
+ * 3. FLEET OPERATIONS (Singly Linked List)
+ * ---------------------------------------------------------------------------- */
+Fleet* create_fleet(void);
+void free_fleet(Fleet* fleet);
 
-/* Create an empty fleet. */
-void fleet_init(Fleet *fleet);
+/* O(1) Insertion at the head of the list */
+bool add_ambulance(Fleet* fleet, int id, const char* plate, const char* type, int start_node);
 
-/* Add an ambulance at the head of the list (O(1)).
- * Returns FH_OK, FH_ERR_NULL, FH_ERR_DUPLICATE, FH_ERR_INVALID or
- * FH_ERR_MEMORY. */
-int fleet_add(Fleet *fleet, int id, int location, FleetStatus status, int type);
+/* O(N) Defensive linear search */
+AmbulanceNode* find_ambulance(const Fleet* fleet, int id);
 
-/* Remove the ambulance with this ID and free its node (O(n)).
- * Returns FH_OK or FH_ERR_NOT_FOUND. */
-int fleet_remove(Fleet *fleet, int id);
+/* Status & Location Updates */
+bool update_ambulance_status(Fleet* fleet, int id, AmbulanceStatus new_status);
+bool update_ambulance_location(Fleet* fleet, int id, int new_node);
 
-/* Find an ambulance by ID. Returns pointer, or NULL if not found. */
-AmbulanceNode *fleet_find(const Fleet *fleet, int id);
+/* Visual Display */
+void print_fleet(const Fleet* fleet);
+int count_available_ambulances(const Fleet* fleet);
 
-/* Change an ambulance's status. Returns FH_OK, FH_ERR_NOT_FOUND or
- * FH_ERR_INVALID. */
-int fleet_update_status(Fleet *fleet, int id, FleetStatus new_status);
+/* ----------------------------------------------------------------------------
+ * 4. HOSPITAL OPERATIONS
+ * ---------------------------------------------------------------------------- */
+HospitalList* create_hospital_list(void);
+void free_hospital_list(HospitalList* list);
 
-/* Count ambulances with a given status. */
-int fleet_count_by_status(const Fleet *fleet, FleetStatus status);
-
-/* Print every ambulance in a readable table. */
-void fleet_print(const Fleet *fleet);
-
-/* Free every node and reset the fleet to empty. */
-void fleet_free(Fleet *fleet);
-
-/* ================================================================== */
-/* HOSPITAL FUNCTIONS                                                  */
-/* ================================================================== */
-
-void hospital_list_init(HospitalList *list);
-
-/* Add a hospital. Returns FH_OK, FH_ERR_NULL, FH_ERR_DUPLICATE,
- * FH_ERR_INVALID (beds < 0 or available > total) or FH_ERR_MEMORY. */
-int hospital_add(HospitalList *list, int id, const char *name, int location,
+bool add_hospital(HospitalList* list, int id, int node_id, const char* name,
                  int total_beds, int available_beds,
-                 int icu_ready, int trauma_center);
+                 int icu_total, int icu_avail, bool has_trauma);
 
-/* Find a hospital by ID. Returns pointer, or NULL if not found. */
-HospitalNode *hospital_find(const HospitalList *list, int id);
+HospitalNode* find_hospital_by_id(const HospitalList* list, int id);
+HospitalNode* find_hospital_by_node(const HospitalList* list, int node_id);
+HospitalNode* find_suitable_hospital(const HospitalList* list, bool need_icu, bool need_trauma);
 
-/* Pick a hospital for a patient.
- *   need_icu    : 1 if the patient needs ICU, else 0
- *   need_trauma : 1 if the patient needs a trauma center, else 0
- * Only hospitals with available_beds > 0 and matching needs qualify.
- * Returns the matching hospital, or NULL if none qualifies. */
-HospitalNode *hospital_find_suitable(const HospitalList *list,
-                                     int need_icu, int need_trauma);
+/* Capacity Allocation & Discharge */
+bool admit_patient_to_hospital(HospitalList* list, int hospital_id, bool requires_icu);
+bool discharge_patient_from_hospital(HospitalList* list, int hospital_id, bool had_icu);
 
-/* Reserve one bed. Returns FH_OK, FH_ERR_NOT_FOUND or FH_ERR_NO_BEDS. */
-int hospital_admit(HospitalList *list, int id);
+void print_hospitals(const HospitalList* list);
 
-/* Free one bed (never above total_beds). Returns FH_OK or
- * FH_ERR_NOT_FOUND. */
-int hospital_discharge(HospitalList *list, int id);
+/* ----------------------------------------------------------------------------
+ * 5. FLAT-FILE DISK PERSISTENCE ENGINE
+ * ---------------------------------------------------------------------------- */
+bool load_fleet_from_file(Fleet* fleet, const char* filename);
+bool save_fleet_to_file(const Fleet* fleet, const char* filename);
 
-/* Print every hospital in a readable table. */
-void hospital_print(const HospitalList *list);
-
-/* Free every node and reset the list to empty. */
-void hospital_list_free(HospitalList *list);
-
-/* ================================================================== */
-/* FILE PERSISTENCE (flat .txt files, no database)                     */
-/* ================================================================== */
-
-/* Save the whole fleet to fleet.txt (one ambulance per line).
- * Returns FH_OK or FH_ERR_FILE. */
-int fleet_save(const Fleet *fleet, const char *filename);
-
-/* Load the fleet from fleet.txt. If the file does not exist, the fleet
- * stays empty and FH_OK is returned. Bad lines are skipped with a
- * warning. Returns FH_OK or FH_ERR_FILE. */
-int fleet_load(Fleet *fleet, const char *filename);
-
-/* Same pair of functions for hospitals.txt. */
-int hospital_save(const HospitalList *list, const char *filename);
-int hospital_load(HospitalList *list, const char *filename);
+bool load_hospitals_from_file(HospitalList* list, const char* filename);
+bool save_hospitals_to_file(const HospitalList* list, const char* filename);
 
 #endif /* FLEET_HOSPITAL_H */

@@ -1,0 +1,7 @@
+# ==============================================================================
+# HOSPITAL REGISTRY & CAPACITY DATABASE: BHIMTAL REGIONAL HEALTHCARE
+# Format:
+#   ID  NODE  TOTAL_BEDS  AVAIL_BEDS  ICU_TOTAL  ICU_AVAIL  TRAUMA  NAME
+# ==============================================================================
+1   5     30          18          6          3          0       District Civil Hospital
+2   8     60          35          15         8          1       City Multi-Specialty Trauma Center

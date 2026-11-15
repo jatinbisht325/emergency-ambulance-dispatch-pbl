@@ -1,0 +1,11 @@
+# ==============================================================================
+# AMBULANCE FLEET DATABASE: BHIMTAL EMERGENCY DISPATCH NETWORK
+# Format:
+#   ID   PLATE_NUMBER   CATEGORY       PARKED_NODE   STATUS(0=Avail)  TRIPS_DONE
+# ==============================================================================
+101   UK-04-A-1001   Basic           0             0                0
+102   UK-04-A-1002   ICU-Advanced    0             0                0
+103   UK-04-B-2001   Basic           7             0                0
+104   UK-04-B-2002   ICU-Advanced    7             0                0
+105   UK-04-C-3001   ICU-Advanced    8             0                0
+106   UK-04-C-3002   Basic           8             0                0

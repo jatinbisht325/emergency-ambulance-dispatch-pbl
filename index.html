@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Ambulance Dispatch System - PBL GEHU Bhimtal</title>
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #151d30;
+            --bg-card-hover: #1c2740;
+            --border: #233152;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.4);
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --font-mono: 'Consolas', 'Courier New', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Top Header */
+        header {
+            background: linear-gradient(180deg, #182238 0%, #111728 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+        }
+
+        .badge-pbl {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .team-credits {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .team-credits span {
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        /* Telemetry Status Bar */
+        .telemetry-bar {
+            background: #0f1626;
+            border-bottom: 1px solid var(--border);
+            padding: 8px 24px;
+            display: flex;
+            gap: 24px;
+            font-size: 0.85rem;
+            font-family: var(--font-mono);
+        }
+
+        .telemetry-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .telemetry-item .label {
+            color: var(--text-muted);
+        }
+
+        .telemetry-item .val {
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        /* Main Workspace Layout */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            flex: 1;
+            gap: 16px;
+            padding: 16px 24px;
+        }
+
+        /* Left Column: Interactive Map */
+        .map-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: #12192c;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 480px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Map Action Floating Controls */
+        .map-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            box-shadow: 0 0 12px var(--primary-glow);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        /* Right Column: Triage & Telemetry Panels */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-content {
+            padding: 12px 16px;
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        /* Hospital Bars */
+        .hosp-item {
+            margin-bottom: 12px;
+        }
+
+        .hosp-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .hosp-title {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background: #1e293b;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .progress-fill {
+            background: var(--success);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .hosp-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        /* Queue / Stack Items */
+        .queue-item {
+            background: #0f172a;
+            border-left: 3px solid var(--primary);
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .queue-item.critical {
+            border-left-color: var(--danger);
+        }
+
+        .queue-item.urgent {
+            border-left-color: var(--warning);
+        }
+
+        .queue-title {
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .queue-desc {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            margin-top: 2px;
+        }
+
+        /* Fleet Table */
+        .table-fleet {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
+        }
+
+        .table-fleet th {
+            text-align: left;
+            padding: 6px 8px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table-fleet td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #1a243c;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .status-avail {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+        }
+
+        .status-busy {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: #172138;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 440px;
+            padding: 20px;
+        }
+
+        .modal h2 {
+            font-size: 1.1rem;
+            margin-bottom: 14px;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: #0d1322;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #ffffff;
+            font-size: 0.85rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <span style="font-size: 1.5rem;">🚑</span>
+            <div>
+                <h1>Emergency Ambulance Dispatch & Fleet Control Center</h1>
+                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+                    Decision-Support Operations Simulation (999/112) | Bhimtal Region
+                </div>
+            </div>
+            <span class="badge-pbl">PBL C99 Data Structures</span>
+        </div>
+        <div class="team-credits">
+            Lead: <span>Jatin Bisht</span> | 
+            Team: <span>Kartik, Mansi, Mahima</span>
+        </div>
+    </header>
+
+    <div class="telemetry-bar">
+        <div class="telemetry-item">
+            <span class="label">Ambulances:</span>
+            <span class="val" id="tele-amb">6 / 6 Ready</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="label">Pending 112 Calls:</span>
+            <span class="val" id="tele-calls" style="color: #f59e0b;">0</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="label">Free Hospital Beds:</span>
+            <span class="val" id="tele-beds" style="color: #10b981;">53 / 90</span>
+        </div>
+        <div class="telemetry-item">
+            <span class="label">Incidents Resolved:</span>
+            <span class="val" id="tele-audit">0</span>
+        </div>
+    </div>
+
+    <div class="workspace">
+        
+        <!-- Left Column: City Map Canvas -->
+        <div class="map-container">
+            <div class="panel-header">
+                <span>📍 Regional Road Network Topology (Bhimtal, Uttarakhand)</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);" id="route-indicator">Click any node to triage</span>
+            </div>
+            <div class="canvas-wrapper">
+                <canvas id="mapCanvas"></canvas>
+            </div>
+            
+            <div class="map-controls">
+                <button class="btn btn-danger" onclick="openCallModal()">
+                    <span>➕</span> Log New 112 Call
+                </button>
+                <button class="btn" onclick="dispatchNext()">
+                    <span>⚡</span> Auto-Dispatch Nearest (Dijkstra + Min-Heap)
+                </button>
+                <button class="btn btn-secondary" onclick="runDemo()">
+                    <span>🎬</span> Run Professor Demo Walkthrough
+                </button>
+                <button class="btn btn-secondary" onclick="resetSim()" style="margin-left: auto;">
+                    <span>🔄</span> Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Column: Telemetry & Queues -->
+        <div class="sidebar">
+            
+            <!-- FIFO Call Queue -->
+            <div class="card" style="flex: 1;">
+                <div class="panel-header">
+                    <span>📥 Pending Calls (FIFO Queue - Mahima)</span>
+                    <span id="queue-count" style="color: #f59e0b; font-size: 0.75rem;">0 Waiting</span>
+                </div>
+                <div class="card-content" id="queue-list">
+                    <div style="color: var(--text-muted); text-align: center; padding: 20px 0;">
+                        Queue empty. All emergency calls serviced.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hospital Capacity Tracker -->
+            <div class="card">
+                <div class="panel-header">
+                    <span>🏥 Hospital Capacity (Mansi)</span>
+                </div>
+                <div class="card-content" id="hosp-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Ambulance Fleet Status -->
+            <div class="card">
+                <div class="panel-header">
+                    <span>🚑 Active Fleet Registry (Kartik & Mansi)</span>
+                </div>
+                <div class="card-content" style="max-height: 140px;">
+                    <table class="table-fleet">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Plate</th>
+                                <th>Node</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fleet-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- LIFO History Stack -->
+            <div class="card">
+                <div class="panel-header">
+                    <span>📋 Incident Audit Log (LIFO Stack - Mahima)</span>
+                </div>
+                <div class="card-content" id="audit-list" style="max-height: 130px;">
+                    <div style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 10px 0;">
+                        No incidents resolved yet.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Intake Modal -->
+    <div class="modal-overlay" id="callModal">
+        <div class="modal">
+            <h2>Log 112 / 999 Emergency Call</h2>
+            <div class="form-group">
+                <label>Incident Location (Intersection Node):</label>
+                <select class="form-control" id="modalNode">
+                    <option value="3">Node 03: GEHU Bhimtal Campus Gate</option>
+                    <option value="1">Node 01: Tallital Junction</option>
+                    <option value="2">Node 02: Mallital Central Market</option>
+                    <option value="4">Node 04: Bhowali Crossroad</option>
+                    <option value="6">Node 06: Kainchi Sector Post</option>
+                    <option value="9">Node 09: Jeolikote Transit Outpost</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Triage Severity Level:</label>
+                <select class="form-control" id="modalSeverity">
+                    <option value="4">Critical (Trauma / Multi-injury / Immediate)</option>
+                    <option value="3">High (Severe, Cardiac, Respiratory)</option>
+                    <option value="2">Medium (Fracture, Urgent)</option>
+                    <option value="1">Low (Minor / Non-critical)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Brief Description:</label>
+                <input type="text" class="form-control" id="modalDesc" value="Vehicular collision near campus gate">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeCallModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="submitCallModal()">Enqueue Call</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =====================================================================
+         * DATA DEFINITIONS: 100% Matching city_map.txt, fleet.txt, hospitals.txt
+         * ===================================================================== */
+        const NODES = [
+            { id: 0, name: "Bhimtal Ambulance Base", isBase: true, isHosp: false, x: 90,  y: 80 },
+            { id: 1, name: "Tallital Junction",      isBase: false, isHosp: false, x: 280, y: 80 },
+            { id: 2, name: "Mallital Central Market",isBase: false, isHosp: false, x: 470, y: 80 },
+            { id: 3, name: "GEHU Campus Gate",       isBase: false, isHosp: false, x: 90,  y: 230 },
+            { id: 4, name: "Bhowali Crossroad",      isBase: false, isHosp: false, x: 280, y: 230 },
+            { id: 5, name: "District Civil Hospital",isBase: false, isHosp: true,  x: 470, y: 230 },
+            { id: 6, name: "Kainchi Sector Post",    isBase: false, isHosp: false, x: 170, y: 390 },
+            { id: 7, name: "Kathgodam Base",         isBase: true, isHosp: false, x: 570, y: 390 },
+            { id: 8, name: "City Trauma Center",     isBase: true, isHosp: true,  x: 370, y: 390 },
+            { id: 9, name: "Jeolikote Outpost",      isBase: false, isHosp: false, x: 570, y: 230 }
+        ];
+
+        const ROADS = [
+            { u: 0, v: 1, dist: 4 },
+            { u: 0, v: 3, dist: 2 },
+            { u: 1, v: 2, dist: 3 },
+            { u: 1, v: 4, dist: 5 },
+            { u: 2, v: 4, dist: 4 },
+            { u: 2, v: 5, dist: 6 },
+            { u: 3, v: 4, dist: 3 },
+            { u: 3, v: 6, dist: 7 },
+            { u: 4, v: 5, dist: 3 },
+            { u: 4, v: 6, dist: 4 },
+            { u: 5, v: 8, dist: 5 },
+            { u: 6, v: 8, dist: 6 },
+            { u: 7, v: 9, dist: 4 },
+            { u: 9, v: 1, dist: 6 },
+            { u: 9, v: 8, dist: 8 },
+            { u: 7, v: 8, dist: 3 }
+        ];
+
+        let fleet = [
+            { id: 101, plate: "UK-04-A-1001", type: "Basic", node: 0, status: "AVAILABLE", trips: 0 },
+            { id: 102, plate: "UK-04-A-1002", type: "ICU",   node: 0, status: "AVAILABLE", trips: 0 },
+            { id: 103, plate: "UK-04-B-2001", type: "Basic", node: 7, status: "AVAILABLE", trips: 0 },
+            { id: 104, plate: "UK-04-B-2002", type: "ICU",   node: 7, status: "AVAILABLE", trips: 0 },
+            { id: 105, plate: "UK-04-C-3001", type: "ICU",   node: 8, status: "AVAILABLE", trips: 0 },
+            { id: 106, plate: "UK-04-C-3002", type: "Basic", node: 8, status: "AVAILABLE", trips: 0 }
+        ];
+
+        let hospitals = [
+            { id: 1, node: 5, name: "District Civil Hospital", totalBeds: 30, availBeds: 18, icuTotal: 6, icuAvail: 3, trauma: false },
+            { id: 2, node: 8, name: "City Trauma Center",      totalBeds: 60, availBeds: 35, icuTotal: 15, icuAvail: 8, trauma: true }
+        ];
+
+        let callQueue = [];
+        let historyStack = [];
+        let activeRoutePath = [];
+        let movingAmbulance = null;
+        let nextCallId = 1001;
+
+        /* Canvas Setup */
+        const canvas = document.getElementById("mapCanvas");
+        const ctx = canvas.getContext("2d");
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            drawMap();
+        }
+        window.addEventListener("resize", resizeCanvas);
+
+        /* Graph & Dijkstra Implementation */
+        function getAdjList() {
+            const adj = {};
+            NODES.forEach(n => adj[n.id] = []);
+            ROADS.forEach(r => {
+                adj[r.u].push({ target: r.v, dist: r.dist });
+                adj[r.v].push({ target: r.u, dist: r.dist });
+            });
+            return adj;
+        }
+
+        function dijkstra(start, end) {
+            const adj = getAdjList();
+            const dist = {};
+            const parent = {};
+            const visited = {};
+
+            NODES.forEach(n => {
+                dist[n.id] = Infinity;
+                parent[n.id] = -1;
+                visited[n.id] = false;
+            });
+
+            dist[start] = 0;
+
+            for (let i = 0; i < NODES.length; i++) {
+                let u = -1;
+                let minDist = Infinity;
+                for (let n = 0; n < NODES.length; n++) {
+                    if (!visited[n] && dist[n] < minDist) {
+                        minDist = dist[n];
+                        u = n;
+                    }
+                }
+
+                if (u === -1 || u === end) break;
+                visited[u] = true;
+
+                adj[u].forEach(edge => {
+                    const v = edge.target;
+                    if (!visited[v] && dist[u] + edge.dist < dist[v]) {
+                        dist[v] = dist[u] + edge.dist;
+                        parent[v] = u;
+                    }
+                });
+            }
+
+            if (dist[end] === Infinity) return { path: [], dist: Infinity };
+
+            const path = [];
+            let curr = end;
+            while (curr !== -1) {
+                path.push(curr);
+                if (curr === start) break;
+                curr = parent[curr];
+            }
+            path.reverse();
+            return { path, dist: dist[end] };
+        }
+
+        /* Drawing the 2D Map */
+        function getScale() {
+            const scaleX = canvas.width / 680;
+            const scaleY = canvas.height / 480;
+            return Math.min(scaleX, scaleY);
+        }
+
+        function getNodeCoords(node) {
+            const s = getScale();
+            const offsetX = (canvas.width - 680 * s) / 2;
+            const offsetY = (canvas.height - 480 * s) / 2;
+            return {
+                x: offsetX + node.x * s,
+                y: offsetY + node.y * s
+            };
+        }
+
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw roads
+            ROADS.forEach(road => {
+                const u = getNodeCoords(NODES[road.u]);
+                const v = getNodeCoords(NODES[road.v]);
+
+                // Check if road is part of active highlighted path
+                let isHighlighted = false;
+                for (let i = 0; i < activeRoutePath.length - 1; i++) {
+                    if ((activeRoutePath[i] === road.u && activeRoutePath[i+1] === road.v) ||
+                        (activeRoutePath[i] === road.v && activeRoutePath[i+1] === road.u)) {
+                        isHighlighted = true;
+                        break;
+                    }
+                }
+
+                ctx.beginPath();
+                ctx.moveTo(u.x, u.y);
+                ctx.lineTo(v.x, v.y);
+                ctx.strokeStyle = isHighlighted ? "#38bdf8" : "#22314e";
+                ctx.lineWidth = isHighlighted ? 4 : 2;
+                if (isHighlighted) {
+                    ctx.shadowColor = "#0284c7";
+                    ctx.shadowBlur = 10;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+                ctx.stroke();
+
+                // Draw distance label
+                const midX = (u.x + v.x) / 2;
+                const midY = (u.y + v.y) / 2;
+                ctx.fillStyle = isHighlighted ? "#bae6fd" : "#64748b";
+                ctx.font = "10px Consolas";
+                ctx.fillText(`${road.dist}km`, midX, midY - 3);
+            });
+            ctx.shadowBlur = 0;
+
+            // Draw nodes
+            NODES.forEach(node => {
+                const coord = getNodeCoords(node);
+                
+                ctx.beginPath();
+                ctx.arc(coord.x, coord.y, 16, 0, Math.PI * 2);
+                
+                if (node.isHosp && node.isBase) {
+                    ctx.fillStyle = "#8b5cf6"; // Purple for Trauma Center (both)
+                } else if (node.isHosp) {
+                    ctx.fillStyle = "#ef4444"; // Red for Hospital
+                } else if (node.isBase) {
+                    ctx.fillStyle = "#3b82f6"; // Blue for Base
+                } else {
+                    ctx.fillStyle = "#1e293b"; // Slate for Junction
+                }
+
+                ctx.fill();
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Node ID text
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 11px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(node.id, coord.x, coord.y);
+
+                // Node Name
+                ctx.fillStyle = "#cbd5e1";
+                ctx.font = "10px sans-serif";
+                ctx.fillText(node.name, coord.x, coord.y + 24);
+            });
+
+            // Draw moving vehicle if in animation
+            if (movingAmbulance) {
+                const coord = getNodeCoords(NODES[movingAmbulance.node]);
+                ctx.font = "20px sans-serif";
+                ctx.fillText("🚑", coord.x, coord.y - 18);
+            }
+        }
+
+        /* Update UI Tables & Status */
+        function updateUI() {
+            const availCount = fleet.filter(a => a.status === "AVAILABLE").length;
+            const freeBeds = hospitals.reduce((sum, h) => sum + h.availBeds, 0);
+            const totalBeds = hospitals.reduce((sum, h) => sum + h.totalBeds, 0);
+
+            document.getElementById("tele-amb").innerText = `${availCount} / ${fleet.length} Ready`;
+            document.getElementById("tele-calls").innerText = callQueue.length;
+            document.getElementById("tele-beds").innerText = `${freeBeds} / ${totalBeds}`;
+            document.getElementById("tele-audit").innerText = historyStack.length;
+            document.getElementById("queue-count").innerText = `${callQueue.length} Waiting`;
+
+            // Render Queue
+            const qContainer = document.getElementById("queue-list");
+            if (callQueue.length === 0) {
+                qContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px 0;">Queue empty. All emergency calls serviced.</div>`;
+            } else {
+                qContainer.innerHTML = callQueue.map(c => `
+                    <div class="queue-item ${c.severity >= 3 ? 'critical' : 'urgent'}">
+                        <div class="queue-title">
+                            <span>Call #${c.id} (Node ${c.node})</span>
+                            <span style="font-size: 0.7rem; color: #f87171;">Sev ${c.severity}</span>
+                        </div>
+                        <div class="queue-desc">${c.desc}</div>
+                    </div>
+                `).join("");
+            }
+
+            // Render Hospitals
+            const hContainer = document.getElementById("hosp-list");
+            hContainer.innerHTML = hospitals.map(h => {
+                const pct = Math.round((h.availBeds / h.totalBeds) * 100);
+                return `
+                    <div class="hosp-item">
+                        <div class="hosp-title">
+                            <span>${h.name}</span>
+                            <span style="color: #38bdf8;">${h.availBeds}/${h.totalBeds} Beds</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-fill" style="width: ${pct}%;"></div>
+                        </div>
+                        <div class="hosp-meta">
+                            <span>ICU Free: ${h.icuAvail}/${h.icuTotal}</span>
+                            <span>${h.trauma ? 'Trauma Center: YES' : 'Trauma: NO'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            // Render Fleet Table
+            const fTbody = document.getElementById("fleet-tbody");
+            fTbody.innerHTML = fleet.map(a => `
+                <tr>
+                    <td>#${a.id}</td>
+                    <td>${a.plate}</td>
+                    <td>[${a.node}]</td>
+                    <td><span class="status-badge ${a.status === 'AVAILABLE' ? 'status-avail' : 'status-busy'}">${a.status}</span></td>
+                </tr>
+            `).join("");
+
+            // Render Audit Stack
+            const aContainer = document.getElementById("audit-list");
+            if (historyStack.length === 0) {
+                aContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 10px 0;">No incidents resolved yet.</div>`;
+            } else {
+                aContainer.innerHTML = historyStack.slice().reverse().map(item => `
+                    <div style="border-bottom: 1px solid #1e293b; padding: 5px 0; font-size: 0.75rem;">
+                        <span style="color: #38bdf8; font-weight: 600;">Call #${item.callId}</span>: 
+                        Amb #${item.ambId} -> Hosp [Node ${item.hospNode}] (${item.dist} km)
+                    </div>
+                `).join("");
+            }
+
+            drawMap();
+        }
+
+        /* Dispatch Action */
+        function dispatchNext() {
+            if (callQueue.length === 0) {
+                alert("Call queue is empty! Click 'Log New 112 Call' to register an emergency.");
+                return;
+            }
+
+            const availAmbs = fleet.filter(a => a.status === "AVAILABLE");
+            if (availAmbs.length === 0) {
+                alert("All ambulances are currently BUSY! Wait or reset fleet.");
+                return;
+            }
+
+            const call = callQueue.shift();
+
+            // Run Dijkstra from each available ambulance to patient scene (Kartik's Min-Heap logic)
+            let bestAmb = null;
+            let minAmbDist = Infinity;
+            let leg1Path = [];
+
+            availAmbs.forEach(amb => {
+                const res = dijkstra(amb.node, call.node);
+                if (res.dist < minAmbDist) {
+                    minAmbDist = res.dist;
+                    bestAmb = amb;
+                    leg1Path = res.path;
+                }
+            });
+
+            // Find nearest hospital with bed
+            let bestHosp = null;
+            let minHospDist = Infinity;
+            let leg2Path = [];
+
+            hospitals.forEach(h => {
+                if (h.availBeds <= 0) return;
+                if (call.severity >= 3 && h.icuAvail <= 0) return;
+                const res = dijkstra(call.node, h.node);
+                if (res.dist < minHospDist) {
+                    minHospDist = res.dist;
+                    bestHosp = h;
+                    leg2Path = res.path;
+                }
+            });
+
+            if (!bestHosp) {
+                bestHosp = hospitals[0]; // Fallback
+                const res = dijkstra(call.node, bestHosp.node);
+                leg2Path = res.path;
+                minHospDist = res.dist;
+            }
+
+            // Deduct bed
+            bestHosp.availBeds--;
+            if (call.severity >= 3 && bestHosp.icuAvail > 0) bestHosp.icuAvail--;
+
+            // Combine path for visualization
+            activeRoutePath = leg1Path.concat(leg2Path.slice(1));
+            document.getElementById("route-indicator").innerText = 
+                `Dispatched Amb #${bestAmb.id}: Base(${bestAmb.node}) -> Scene(${call.node}) -> Hosp(${bestHosp.node}) [${minAmbDist + minHospDist} km]`;
+
+            // State updates
+            bestAmb.status = "DISPATCHED";
+            movingAmbulance = { node: call.node };
+
+            // Record to LIFO Stack
+            historyStack.push({
+                callId: call.id,
+                ambId: bestAmb.id,
+                hospNode: bestHosp.node,
+                dist: minAmbDist + minHospDist
+            });
+
+            setTimeout(() => {
+                bestAmb.node = bestHosp.node;
+                bestAmb.status = "AVAILABLE";
+                bestAmb.trips++;
+                movingAmbulance = null;
+                updateUI();
+            }, 1200);
+
+            updateUI();
+        }
+
+        /* Modal Handlers */
+        function openCallModal() {
+            document.getElementById("callModal").classList.add("active");
+        }
+
+        function closeCallModal() {
+            document.getElementById("callModal").classList.remove("active");
+        }
+
+        function submitCallModal() {
+            const node = parseInt(document.getElementById("modalNode").value);
+            const severity = parseInt(document.getElementById("modalSeverity").value);
+            const desc = document.getElementById("modalDesc").value;
+
+            callQueue.push({
+                id: nextCallId++,
+                node: node,
+                severity: severity,
+                desc: desc
+            });
+
+            closeCallModal();
+            updateUI();
+        }
+
+        /* Automated Professor Demo Walkthrough */
+        function runDemo() {
+            callQueue = [
+                { id: 2001, node: 3, severity: 4, desc: "Accident at GEHU Campus Gate (Critical Trauma)" },
+                { id: 2002, node: 2, severity: 3, desc: "Mallital Market: Cardiac arrest" },
+                { id: 2003, node: 6, severity: 1, desc: "Kainchi Post: Sports fracture" }
+            ];
+            updateUI();
+            alert("Loaded 3 simultaneous emergencies into FIFO queue. Dispatching first call now...");
+            dispatchNext();
+        }
+
+        function resetSim() {
+            location.reload();
+        }
+
+        // Initial setup
+        window.onload = () => {
+            resizeCanvas();
+            updateUI();
+        };
+    </script>
+</body>
+</html>
